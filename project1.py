@@ -45,6 +45,7 @@ def inverse_fft_translate(operator):
 
 "Reconstruct the image by back projecting the filtered projections (UNFINISHED)"
 def back_project(operator):
+    print(operator.shape)
     laminogram = np.zeros((operator.shape[1],operator.shape[1]))
     dTheta = 180.0 / operator.shape[0]
     for i in range(operator.shape[0]):
@@ -61,9 +62,12 @@ def back_project(operator):
 
 "Import the image as a numpy array and display the original sinogram image"
 print("Original Sinogram")
-sinogram = imutils.imread('sinogram.png')
-imutils.imshow(sinogram)
-scipy.misc.imsave('originalSinogramImage.png', sinogram)
+sinogram = imutils.imread('friends.png')
+
+
+
+print("Sinogram")
+sinogram = radon(sinogram, steps=1000) # You can adjust the number of steps
 
 
 
@@ -71,7 +75,7 @@ scipy.misc.imsave('originalSinogramImage.png', sinogram)
 print("Reconstruction with no filtering")
 unfiltered_reconstruction = back_project(sinogram)
 imutils.imshow(unfiltered_reconstruction)
-scipy.misc.imsave('unfilteredReconstruction.png', unfiltered_reconstruction)
+
 
 
 

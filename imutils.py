@@ -268,9 +268,9 @@ def autoContrastSat(im, sat=0.004):
         if acc >= sat_hi:
             i_hi = i
             break
-    print "Total image pixel count: %d" % size_im
-    print "lower saturation value:  %d, at intensity: %d" % (sat_lo,i_lo)
-    print "upper saturation value:  %d, at intensity: %d" % (sat_hi,i_hi)
+    print ("Total image pixel count: %d" % size_im)
+    print ("lower saturation value:  %d, at intensity: %d" % (sat_lo,i_lo))
+    print ("upper saturation value:  %d, at intensity: %d" % (sat_hi,i_hi))
     return contrastEnhance(im, 255.0/(i_hi - i_lo))
     
 
@@ -490,8 +490,8 @@ def makeCLhist(im, maxslope=3.5,maxiter=10,redistribute=False,verbose=True):
     iteration = 1
     maxH = maxslope / 255.0             ## scale slope to account for spacing 0..255 in s
     if verbose: 
-        print "Building slope-limited histogram, target slope =", maxslope,
-        print "scaled as maxH =", maxH
+        print ("Building slope-limited histogram, target slope =", maxslope,)
+        print ("scaled as maxH =", maxH)
     im = im.ravel()
     hs = np.bincount(im,minlength=256) / float(R * C)  ## histogram h(s) normalised
     ## Find indices of histogram entries exceeding the max (scaled) slope.
@@ -500,17 +500,17 @@ def makeCLhist(im, maxslope=3.5,maxiter=10,redistribute=False,verbose=True):
     while excess >= 1e-6 and iteration <= maxiter:
         excessCount = sum(mask)
         if verbose:
-            print "Iteration", iteration
-            print "    Total entries exceeding limit =", excessCount, "  Excess =", excess
+            print ("Iteration", iteration)
+            print ("    Total entries exceeding limit =", excessCount, "  Excess =", excess)
         if redistribute:   # Clip excess entries at maxslope and redistribute excess to other bins.
             redist = excess / (256 - excessCount)
-            if verbose: print "    Redistributing", redist, "to", (256-excessCount), "bins"
+            if verbose: print ("    Redistributing", redist, "to", (256-excessCount), "bins")
             newHs = (redist + hs) * (1-mask) + maxH * mask
             mask = newHs > maxH
             newExcess = sum(mask * (newHs - maxH))
-            if verbose: print "    new excess =", newExcess
+            if verbose: print ("    new excess =", newExcess)
             if newExcess > excess:
-                if verbose: print "    Excess is increasing, ", newExcess, "exiting."
+                if verbose: print ("    Excess is increasing, ", newExcess, "exiting.")
                 break
         else: # No redistribution of excess, just clip histogram at maxslope and force exit (by newExcess = 0).   
             newHs = hs * (1-mask) + maxH * mask
@@ -527,9 +527,9 @@ def makeCLchist(im, maxslope=3.5,maxiter=10,redistribute=False,verbose=False):
        histogram is scaled into the range 0 .. 255.0.  Parameters are as
        for cl_equalize."""
     hs = makeCLhist(im, maxslope, maxiter, redistribute, verbose)
-    if verbose: print "Histogram sum =", hs.sum()
+    if verbose: print("Histogram sum =", hs.sum())
     chs = np.cumsum(hs)
-    if verbose: print "Cumulative histogram max =", chs.max()    
+    if verbose: print("Cumulative histogram max =", chs.max())
     return 255* (chs /chs[-1])   # Note scaleing 0..1 then 0 ..255.
 
 

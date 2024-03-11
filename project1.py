@@ -12,15 +12,28 @@ import scipy.misc                    ## Contains a package to save numpy arrays 
 
 "Radon transform method - turns an image into a sinogram (Not used for reconstruction - this"
 "is how the original sinogram was generated"
-def radon(image, steps):        
-    #Build the Radon Transform using 'steps' projections of 'image'. 
-    projections = []        ## Accumulate projections in a list.
-    dTheta = -180.0 / steps ## Angle increment for rotations.
-    
-    for i in range(steps):
-        projections.append(rotate(image, i*dTheta).sum(axis=0))
-    
-    return np.vstack(projections) # Return the projections as a sinogram
+def radon(image, steps):
+    theta = np.linspace(0., 180., steps, endpoint=False)
+    sinogram = np.zeros((len(theta), image.shape[1]))  # Use image.shape[1] for width
+    for i, angle in enumerate(theta):
+        rotated = rotate(image, angle, resize=False)  # Set resize=False to prevent resizing
+
+        # Adjust the rotated image to match the original width
+        if rotated.shape[1] > image.shape[1]:
+            # Clip the rotated image if it's wider than the original
+            excess_width = rotated.shape[1] - image.shape[1]
+            start = excess_width // 2
+            rotated = rotated[:, start:start+image.shape[1]]
+        elif rotated.shape[1] < image.shape[1]:
+            # Pad the rotated image if it's narrower than the original
+            padding = (image.shape[1] - rotated.shape[1]) // 2
+            rotated = np.pad(rotated, ((0, 0), (padding, padding)), 'constant')
+
+        # Sum along the vertical axis (axis=0) and assign to the sinogram
+        sinogram[i, :] = rotated.sum(axis=0)
+    return sinogram, theta
+
+
     
 
 
@@ -31,30 +44,45 @@ def fft_translate(projs):
 
 
 
-"Filter the projections using a ramp filter"
+def fft_translate(projs):
+    fft_projs = np.fft.rfft(projs, axis=1)
+    return fft_projs
+
+def custom_ramp_filter(ffts, filter_type='ramp'):
+    frequencies = np.fft.rfftfreq(ffts.shape[-1])
+    if filter_type == 'ramp':
+        filter = np.abs(frequencies)
+    elif filter_type == 'shepp-logan':
+        # Implement Shepp-Logan filter here
+        pass
+    filtered = ffts * filter[:, None]
+    return filtered
+
+def inverse_fft_translate(ffts):
+    return np.fft.irfft(ffts, axis=1)
+
+def back_project(sinogram, theta):
+    reconstructed = np.zeros((sinogram.shape[1], sinogram.shape[1]))
+    radian_angles = np.deg2rad(theta)
+
+    for i, angle in enumerate(radian_angles):
+        # Create a 2D array from the 1D sinogram projection
+        projection2D = np.tile(sinogram[i], (sinogram.shape[1], 1))
+        
+        # Rotate the 2D projection back
+        rotation = rotate(projection2D, angle, resize=False)
+
+        # Sum the rotated projection to the reconstructed image
+        reconstructed += rotation
+
+    return reconstructed
+
+
+
 def ramp_filter(ffts):
     #Ramp filter a 2-d array of 1-d FFTs (1-d FFTs along the rows).
     ramp = np.floor(np.arange(0.5, ffts.shape[1]//2 + 0.1, 0.5))
     return ffts * ramp
-
-"Return to the spatial domain using inverse Fourier Transform"
-def inverse_fft_translate(operator):
-    return fft.irfft(operator, axis=1)
-
-
-
-"Reconstruct the image by back projecting the filtered projections (UNFINISHED)"
-def back_project(operator):
-    print(operator.shape)
-    laminogram = np.zeros((operator.shape[1],operator.shape[1]))
-    dTheta = 180.0 / operator.shape[0]
-    for i in range(operator.shape[0]):
-        temp = np.tile(operator[i],(operator.shape[1],1))
-        temp = rotate(temp, dTheta*i)
-        laminogram += temp
-    return laminogram
-
-
 
 ## Statements
 
@@ -62,19 +90,20 @@ def back_project(operator):
 
 "Import the image as a numpy array and display the original sinogram image"
 print("Original Sinogram")
-sinogram = imutils.imread('friends.png')
+sinogram = imutils.imread('request.jpeg')
 
 
 
 print("Sinogram")
-sinogram = radon(sinogram, steps=1000) # You can adjust the number of steps
+sinogram, theta = radon(sinogram, steps=1000) # You can adjust the number of steps
+imutils.imshow(sinogram)
+
 
 
 
 "Attempt to reconstruct the image directly from the sinogram without any kind of filtering"
 print("Reconstruction with no filtering")
-unfiltered_reconstruction = back_project(sinogram)
-imutils.imshow(unfiltered_reconstruction)
+unfiltered_reconstruction = back_project(sinogram, theta)
 
 
 
@@ -82,37 +111,34 @@ imutils.imshow(unfiltered_reconstruction)
 "Use the FFT to translate the sinogram to the Frequency Domain and print the output"
 print("Frequency Domain representation of sinogram")
 frequency_domain_sinogram = fft_translate(sinogram)
-imutils.imshow(frequency_domain_sinogram)
-scipy.misc.imsave('frequencyDomainRepresentationOfSinogram.png', 
-                  frequency_domain_sinogram)
+
 
 
 
 "Filter the frequency domain projections by multiplying each one by the frequency domain ramp filter"
 print("Frequency domain projections multipled with a ramp filter")
 filtered_frequency_domain_sinogram = ramp_filter(frequency_domain_sinogram)
-imutils.imshow(filtered_frequency_domain_sinogram)
-scipy.misc.imsave('frequencyDomainProjectionsMultipledWithARampFilter.png', 
-                  filtered_frequency_domain_sinogram)
+# imutils.imshow(filtered_frequency_domain_sinogram)
+# scipy.misc.imsave('frequencyDomainProjectionsMultipledWithARampFilter.png', 
+#                   filtered_frequency_domain_sinogram)
 
 
 
 "Use the inverse FFT to return to the spatial domain"
 print("Spatial domain representation of ramp filtered sinogram")
 filtered_spatial_domain_sinogram = inverse_fft_translate(filtered_frequency_domain_sinogram)
-imutils.imshow(filtered_spatial_domain_sinogram)
-scipy.misc.imsave('spatialDomainRepresentationOfRampFilteredSinogram.png', 
-                  filtered_spatial_domain_sinogram)
-
-
-
+# imutils.imshow(filtered_spatial_domain_sinogram)
+# scipy.misc.imsave('spatialDomainRepresentationOfRampFilteredSinogram.png', 
+#                   filtered_spatial_domain_sinogram)
 
 "Re-construct the original 2D image by back-projecting the filtered projections"
 print("Original, reconstructed image")
-reconstructed_image = back_project(filtered_spatial_domain_sinogram)
+reconstructed_image = back_project(unfiltered_reconstruction, theta) # set the first argument to unfiltered reconstruction
 imutils.imshow(reconstructed_image)
 scipy.misc.imsave('originalReconstructedImage.png', 
                   reconstructed_image)
+
+
 
 
 "Hamming-Windowed Ramp Filter"
